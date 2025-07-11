@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mixy Store</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-storage-compat.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --neon-primary: #08f;
+            --neon-secondary: #0ff;
+            --neon-pink: #ff00ff;
+            --neon-glow: 0 0 10px rgba(0, 255, 255, 0.8),
+                         0 0 20px rgba(0, 255, 255, 0.6),
+                         0 0 30px rgba(0, 255, 255, 0.4);
+            --dark-bg: #121212;
+            --darker-bg: #0a0a0a;
+            --card-bg: rgba(30, 30, 30, 0.8);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            color: #fff;
+            overflow-x: hidden;
+            position: relative;
+            height: 100vh;
+            background-color: #000; /* Set body background to black */
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--dark-bg);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            backdrop-filter: blur(10px);
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--neon-pink);
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        .loading-text {
+            font-size: 1.2rem;
+            color: white;
+            text-shadow: 0 0 10px var(--neon-pink);
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Video Background Container */
+        #video-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background-color: #000; /* Black background for container */
+        }
+
+        /* Video Background - Fixed to cover entire screen */
+        .video-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: brightness(0.8);
+            transition: opacity 1s ease;
+        }
+
+        /* Main content container */
+        .content-container {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            animation: fadeIn 0.5s forwards 2.5s;
+        }
+
+        /* Header */
+        header {
+            padding: 1rem;
+            position: relative;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, var(--neon-primary), var(--neon-secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: var(--neon-glow);
+            animation: pulse 2s infinite;
+        }
+
+        .banner-container {
+            height: 150px;
+            width: 100%;
+            margin: 1rem 0;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .neon-line {
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--neon-pink), #ff00aa);
+            box-shadow: 0 0 10px var(--neon-pink), 
+                        0 0 20px var(--neon-pink),
+                        0 0 30px var(--neon-pink);
+            margin: 1rem 0;
+            animation: glow 2s infinite alternate;
+        }
+
+        #banner-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.5s ease;
+        }
+
+        .banner-container:hover #banner-image {
+            transform: scale(1.05);
+        }
+
+        .app-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1.5rem;
+            padding: 1rem;
+            flex-grow: 1;
+        }
+
+        .app-card {
+            background-color: var(--card-bg);
+            border-radius: 15px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            animation: floatIn 0.5s ease-out forwards;
+            opacity: 0;
+        }
+
+        .app-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 255, 255, 0.3);
+        }
+
+        .app-icon-container {
+            width: 100%;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .app-icon {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .app-info {
+            padding: 0.8rem;
+            text-align: center;
+        }
+
+        .app-name {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .download-btn {
+            background: linear-gradient(90deg, var(--neon-primary), var(--neon-secondary));
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+        }
+
+        .download-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(0, 200, 255, 0.8);
+        }
+
+        .app-detail {
+            display: none;
+            padding: 2rem;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(10, 10, 10, 0.8);
+            z-index: 100;
+            overflow-y: auto;
+        }
+
+        .app-detail::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://great-kandace-margsf-8c736053.koyeb.app/stream/616?hash=eccbeb') center/cover no-repeat;
+            z-index: -1;
+            filter: brightness(0.5) contrast(1.2);
+            animation: videoFade 1s forwards;
+        }
+
+        .detail-header {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .detail-icon-container {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            box-shadow: 0 0 20px rgba(0, 200, 255, 0.3);
+            animation: float 3s ease-in-out infinite;
+            padding: 0.5rem;
+        }
+
+        .detail-icon {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .detail-title {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, var(--neon-primary), var(--neon-secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .detail-download {
+            background: linear-gradient(90deg, var(--neon-primary), var(--neon-secondary));
+            color: white;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-top: 1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.5);
+        }
+
+        .detail-download:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(0, 200, 255, 0.8);
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+            z-index: 101;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: rotate(90deg);
+        }
+
+        .related-apps {
+            margin-top: 3rem;
+        }
+
+        .related-title {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+            display: inline-block;
+        }
+
+        .related-title::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--neon-primary), var(--neon-secondary));
+            border-radius: 3px;
+        }
+
+        .info-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: rgba(10, 10, 10, 0.9);
+            padding: 2rem;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+            box-shadow: 0 0 30px rgba(0, 200, 255, 0.3);
+            border: 1px solid rgba(0, 200, 255, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .dev-info {
+            text-align: center;
+        }
+
+        .dev-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--neon-primary);
+        }
+
+        .dev-links {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .dev-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: white;
+            text-decoration: none;
+            padding: 0.8rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .dev-link:hover {
+            background: rgba(0, 200, 255, 0.2);
+            transform: translateX(5px);
+        }
+
+        .dev-link i {
+            font-size: 1.2rem;
+        }
+
+        .info-btn {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--neon-primary), var(--neon-secondary));
+            color: white;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.5);
+            z-index: 50;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .info-btn:hover {
+            transform: scale(1.1) rotate(90deg);
+            box-shadow: 0 0 25px rgba(0, 200, 255, 0.8);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes floatIn {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes glow {
+            0%, 100% {
+                box-shadow: 0 0 5px var(--neon-pink),
+                            0 0 10px var(--neon-pink),
+                            0 0 15px var(--neon-pink);
+            }
+            50% {
+                box-shadow: 0 0 10px var(--neon-pink),
+                            0 0 20px var(--neon-pink),
+                            0 0 30px var(--neon-pink);
+            }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes bannerFade {
+            0%, 100% { opacity: 0; }
+            20%, 80% { opacity: 1; }
+        }
+
+        @keyframes videoFade {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .header-content {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .app-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+
+            .detail-header {
+                flex-direction: column;
+                align-items: center;
+                gap: 1rem;
+            }
+
+            .detail-icon-container {
+                width: 80px;
+                height: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loading-screen">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading Mixy Store...</div>
+    </div>
+
+    <!-- Video Background Container -->
+    <div id="video-container">
+        <video class="video-background" id="video-background-1" autoplay muted playsinline>
+            <source src="https://great-kandace-margsf-8c736053.koyeb.app/stream/616?hash=eccbeb" type="video/mp4">
+        </video>
+        <video class="video-background" id="video-background-2" autoplay muted playsinline style="display: none; opacity: 0;">
+            <source src="https://great-kandace-margsf-8c736053.koyeb.app/stream/617?hash=51e7c1" type="video/mp4">
+        </video>
+    </div>
+
+    <!-- Main App Page -->
+    <div id="main-page" class="content-container">
+        <header>
+            <div class="header-content">
+                <div class="logo">
+                    <h1>Mixy Store</h1>
+                </div>
+            </div>
+            <div class="banner-container">
+                <img id="banner-image" src="" alt="Mixy Store Banner">
+            </div>
+            <div class="neon-line"></div>
+        </header>
+
+        <main>
+            <div class="app-grid" id="app-grid">
+                <!-- Apps will be loaded here dynamically -->
+            </div>
+        </main>
+    </div>
+
+    <!-- App Detail Page -->
+    <div class="app-detail" id="app-detail">
+        <button class="back-btn" id="back-btn"><i class="fas fa-times"></i></button>
+        <div class="detail-header">
+            <div class="detail-icon-container">
+                <img class="detail-icon" id="detail-icon" src="" alt="App Icon">
+            </div>
+            <div>
+                <h1 class="detail-title" id="detail-title">App Name</h1>
+                <button class="detail-download" id="detail-download-btn">Download</button>
+            </div>
+        </div>
+
+        <div class="app-description" id="app-description">
+            <!-- Description will be loaded here -->
+        </div>
+
+        <div class="related-apps">
+            <h2 class="related-title">You May Also Like</h2>
+            <div class="app-grid" id="related-apps">
+                <!-- Related apps will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div class="info-modal" id="info-modal">
+        <div class="modal-content">
+            <button class="close-modal" id="close-modal"><i class="fas fa-times"></i></button>
+            <div class="dev-info">
+                <h3 class="dev-title">Developer Information</h3>
+                <p>𝘿𝙚𝙫𝙚𝙡𝙤𝙥𝙚𝙙 𝘽𝙮 @𝙈𝙞𝙭𝙮𝙊𝙭</p>
+                
+                <div class="dev-links">
+                    <a href="https://t.me/mixy_ox" class="dev-link" target="_blank">
+                        <i class="fab fa-telegram"></i> Telegram
+                    </a>
+                    <a href="https://www.instagram.com/mixy_ox?igsh=MXNmbGo5anpjbWY4aQ==" class="dev-link" target="_blank">
+                        <i class="fab fa-instagram"></i> Instagram
+                    </a>
+                    <a href="https://youtube.com/@mixyox-9?si=zkKdMYFTi53wGROq" class="dev-link" target="_blank">
+                        <i class="fab fa-youtube"></i> YouTube
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Button -->
+    <button class="info-btn" id="info-btn">
+        <i class="fas fa-info"></i>
+    </button>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyA6PmSb--6Ydt10niFcRo0itFUv75kbSFk",
+            authDomain: "appstore-d7d5f.firebaseapp.com",
+            databaseURL: "https://appstore-d7d5f-default-rtdb.firebaseio.com",
+            projectId: "appstore-d7d5f",
+            storageBucket: "appstore-d7d5f.appspot.com",
+            messagingSenderId: "222472151445",
+            appId: "1:222472151445:web:999acc186cbe11e5ad969c",
+            measurementId: "G-4WZZ5XDZKD"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const storage = firebase.storage();
+
+        // DOM elements
+        const loadingScreen = document.getElementById('loading-screen');
+        const mainPage = document.getElementById('main-page');
+        const appGrid = document.getElementById('app-grid');
+        const bannerImage = document.getElementById('banner-image');
+        const appDetail = document.getElementById('app-detail');
+        const detailIcon = document.getElementById('detail-icon');
+        const detailTitle = document.getElementById('detail-title');
+        const detailDownloadBtn = document.getElementById('detail-download-btn');
+        const backBtn = document.getElementById('back-btn');
+        const relatedAppsGrid = document.getElementById('related-apps');
+        const infoModal = document.getElementById('info-modal');
+        const infoBtn = document.getElementById('info-btn');
+        const closeModal = document.getElementById('close-modal');
+        const videoContainer = document.getElementById('video-container');
+        const videoBackground1 = document.getElementById('video-background-1');
+        const videoBackground2 = document.getElementById('video-background-2');
+
+        // Video URLs
+        const videoUrls = [
+            "https://great-kandace-margsf-8c736053.koyeb.app/stream/616?hash=eccbeb",
+            "https://great-kandace-margsf-8c736053.koyeb.app/stream/617?hash=51e7c1",
+            "https://great-kandace-margsf-8c736053.koyeb.app/stream/619?hash=33cb2e",
+            "https://great-kandace-margsf-8c736053.koyeb.app/stream/620?hash=13e3dc",
+            "https://great-kandace-margsf-8c736053.koyeb.app/stream/621?hash=537da1",
+            "https://great-kandace-margsf-8c736053.koyeb.app/stream/618?hash=351562",
+            "https://great-kandace-margsf-8c736053.koyeb.app/stream/615?hash=8adac3"
+        ];
+
+        // Global variables
+        let allApps = [];
+        let currentAppId = null;
+        let banners = [];
+        let currentBannerIndex = 0;
+        let bannerRotationInterval;
+        let currentVideoIndex = 0;
+        let isVideo1Active = true;
+
+        // Initialize the app
+        function initApp() {
+            // Hide loading screen after 2.5 seconds
+            setTimeout(() => {
+                loadingScreen.style.display = 'none';
+            }, 2500);
+
+            // Set up video background
+            setupVideoBackground();
+
+            // Load banners and apps
+            loadBanners();
+            loadApps();
+
+            // Set up event listeners
+            backBtn.addEventListener('click', () => {
+                appDetail.style.display = 'none';
+                mainPage.style.display = 'block';
+            });
+
+            infoBtn.addEventListener('click', () => {
+                infoModal.style.display = 'flex';
+            });
+
+            closeModal.addEventListener('click', () => {
+                infoModal.style.display = 'none';
+            });
+
+            // Close modal when clicking outside
+            infoModal.addEventListener('click', (e) => {
+                if (e.target === infoModal) {
+                    infoModal.style.display = 'none';
+                }
+            });
+        }
+
+        // Set up video background with rotation
+        function setupVideoBackground() {
+            // Set up video rotation when current video ends
+            videoBackground1.addEventListener('ended', rotateVideo);
+            videoBackground2.addEventListener('ended', rotateVideo);
+            
+            // Start playing immediately
+            videoBackground1.play().catch(e => {
+                console.log('Autoplay prevented, trying again with promise');
+                videoBackground1.play().catch(e => console.log('Video play error:', e));
+            });
+        }
+
+        // Rotate to the next video
+        function rotateVideo() {
+            // Fade out current video
+            if (isVideo1Active) {
+                videoBackground1.style.opacity = '0';
+            } else {
+                videoBackground2.style.opacity = '0';
+            }
+            
+            // Wait for the fade out to complete
+            setTimeout(() => {
+                // Set the next video URL
+                currentVideoIndex = (currentVideoIndex + 1) % videoUrls.length;
+                const nextVideoUrl = videoUrls[currentVideoIndex];
+                
+                if (isVideo1Active) {
+                    // Switch to video 2
+                    videoBackground2.src = nextVideoUrl;
+                    videoBackground2.load();
+                    videoBackground2.style.display = 'block';
+                    
+                    // Fade in the next video after a 1-second black screen
+                    setTimeout(() => {
+                        videoBackground2.style.opacity = '1';
+                        videoBackground2.play().catch(e => console.log('Video play error:', e));
+                    }, 1000);
+                } else {
+                    // Switch to video 1
+                    videoBackground1.src = nextVideoUrl;
+                    videoBackground1.load();
+                    videoBackground1.style.display = 'block';
+                    
+                    // Fade in the next video after a 1-second black screen
+                    setTimeout(() => {
+                        videoBackground1.style.opacity = '1';
+                        videoBackground1.play().catch(e => console.log('Video play error:', e));
+                    }, 1000);
+                }
+                
+                isVideo1Active = !isVideo1Active;
+            }, 1000); // 1 second black screen before next video
+        }
+
+        // Load banners from Firebase
+        function loadBanners() {
+            const bannersRef = database.ref('banners');
+            bannersRef.on('value', (snapshot) => {
+                banners = [];
+                snapshot.forEach((childSnapshot) => {
+                    const bannerData = childSnapshot.val();
+                    banners.push(bannerData.imageUrl);
+                });
+                
+                if (banners.length > 0) {
+                    startBannerRotation();
+                }
+            });
+        }
+
+        // Start rotating banners
+        function startBannerRotation() {
+            // Clear any existing interval
+            if (bannerRotationInterval) {
+                clearInterval(bannerRotationInterval);
+            }
+            
+            // Show first banner immediately
+            if (banners.length > 0) {
+                bannerImage.src = banners[0];
+                currentBannerIndex = 0;
+            }
+            
+            // Set interval for rotation if we have multiple banners
+            if (banners.length > 1) {
+                bannerRotationInterval = setInterval(() => {
+                    currentBannerIndex = (currentBannerIndex + 1) % banners.length;
+                    bannerImage.src = banners[currentBannerIndex];
+                }, 3000); // Change banner every 3 seconds
+            }
+        }
+
+        // Load apps from Firebase
+        function loadApps() {
+            const appsRef = database.ref('apps');
+            appsRef.on('value', (snapshot) => {
+                allApps = [];
+                appGrid.innerHTML = '';
+                
+                snapshot.forEach((childSnapshot) => {
+                    const appData = childSnapshot.val();
+                    appData.id = childSnapshot.key;
+                    allApps.push(appData);
+                    
+                    // Create app card
+                    createAppCard(appData);
+                });
+            });
+        }
+
+        // Create app card element
+        function createAppCard(appData) {
+            const appCard = document.createElement('div');
+            appCard.className = 'app-card';
+            appCard.dataset.appId = appData.id;
+            appCard.style.setProperty('--delay', allApps.length);
+            
+            appCard.innerHTML = `
+                <div class="app-icon-container">
+                    <img class="app-icon" src="${appData.iconUrl}" alt="${appData.name}">
+                </div>
+                <div class="app-info">
+                    <h3 class="app-name">${appData.name}</h3>
+                    <button class="download-btn" data-app-id="${appData.id}">Download</button>
+                </div>
+            `;
+            
+            appGrid.appendChild(appCard);
+            
+            // Add animation delay based on position
+            appCard.style.animationDelay = `${allApps.length * 0.1}s`;
+            
+            // Add click event to the card
+            appCard.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('download-btn')) {
+                    showAppDetail(appData.id);
+                }
+            });
+            
+            // Add click event to the download button
+            const downloadBtn = appCard.querySelector('.download-btn');
+            downloadBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showAppDetail(appData.id);
+            });
+        }
+
+        // Show app detail page
+        function showAppDetail(appId) {
+            const app = allApps.find(a => a.id === appId);
+            if (!app) return;
+            
+            currentAppId = appId;
+            
+            // Set app details
+            detailIcon.src = app.iconUrl;
+            detailTitle.textContent = app.name;
+            detailDownloadBtn.onclick = () => {
+                downloadApp(app.downloadUrl, app.name);
+            };
+            
+            // Load description if available
+            const descriptionDiv = document.getElementById('app-description');
+            if (app.description) {
+                descriptionDiv.innerHTML = `<p>${app.description}</p>`;
+            } else {
+                descriptionDiv.innerHTML = '<p>No description available.</p>';
+            }
+            
+            // Show related apps (random 4 apps excluding current one)
+            showRelatedApps(appId);
+            
+            // Switch to detail view
+            mainPage.style.display = 'none';
+            appDetail.style.display = 'block';
+        }
+
+        // Show related apps
+        function showRelatedApps(currentAppId) {
+            relatedAppsGrid.innerHTML = '';
+            
+            // Filter out current app and get random 4 apps
+            const filteredApps = allApps.filter(app => app.id !== currentAppId);
+            const shuffled = filteredApps.sort(() => 0.5 - Math.random());
+            const selected = shuffled.slice(0, 4);
+            
+            selected.forEach((app, index) => {
+                const relatedAppCard = document.createElement('div');
+                relatedAppCard.className = 'app-card';
+                relatedAppCard.dataset.appId = app.id;
+                relatedAppCard.style.setProperty('--delay', index);
+                
+                relatedAppCard.innerHTML = `
+                    <div class="app-icon-container">
+                        <img class="app-icon" src="${app.iconUrl}" alt="${app.name}">
+                    </div>
+                    <div class="app-info">
+                        <h3 class="app-name">${app.name}</h3>
+                        <button class="download-btn" data-app-id="${app.id}">Download</button>
+                    </div>
+                `;
+                
+                relatedAppsGrid.appendChild(relatedAppCard);
+                
+                // Add animation delay
+                relatedAppCard.style.animationDelay = `${index * 0.1}s`;
+                
+                // Add click event to related app cards
+                relatedAppCard.addEventListener('click', (e) => {
+                    if (!e.target.classList.contains('download-btn')) {
+                        showAppDetail(app.id);
+                    }
+                });
+                
+                // Add click event to related app download buttons
+                const relatedDownloadBtn = relatedAppCard.querySelector('.download-btn');
+                relatedDownloadBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showAppDetail(app.id);
+                });
+            });
+        }
+
+        // Download app function
+        function downloadApp(url, fileName) {
+            // Create a temporary anchor element
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName || 'download';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            // Show download started message
+            alert(`Download started for ${fileName}`);
+        }
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
